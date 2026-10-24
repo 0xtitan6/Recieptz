@@ -1,0 +1,5 @@
+[
+  { "text": "The U.S. unemployment rate is above 10%.", "expect": "False" },
+  { "text": "Is this policy good?", "expect": "decline" },
+  { "text": "Did a famous actor get plastic surgery?", "expect": "decline" }
+]
