@@ -1,7 +1,10 @@
-# Secrets
+node_modules/
 .env
-.env.*
-!.env.example
-
-# Personal learning notes (VibeWise)
+receipts/*.json
+contract/target/
+*.ds_store
+.DS_Store
+.venv
 .vibe-wise/
+!.env.example
+.env.*
