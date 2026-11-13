@@ -10,4 +10,5 @@ export const cfg = {
   jurors: JSON.parse(process.env.JURORS ?? "[]") as JurorCfg[],
   blsKey: process.env.BLS_API_KEY ?? "",
   beaKey: process.env.BEA_API_KEY ?? "",
+  censusKey: process.env.CENSUS_API_KEY ?? "",
 };
