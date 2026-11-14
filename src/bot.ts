@@ -36,6 +36,7 @@ async function handle(mention: TweetV2, parents: Map<string, TweetV2>): Promise<
   if (r.declined && r.reason === "out-of-coverage")
     return `I can't check this against primary records yet. Covered today: ${COVERED_DOMAINS.join(", ")}.`;
   if (r.declined) return "I didn't find a checkable public claim in that post.";
+  if (r.uncovered) return `I can't check this against primary records yet. Covered today: ${COVERED_DOMAINS.join(", ")}.`;
 
   const rc = r.receipt;
   const link = `\nReceipt, verified on NEAR: ${LOOKUP_URL}/run/${rc.runId}`;

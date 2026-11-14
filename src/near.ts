@@ -5,6 +5,16 @@ import { sha256 } from "multiformats/hashes/sha2";
 import { cfg } from "./config.js";
 import type { Label } from "./types.js";
 
+function isNearKey(key: string): boolean {
+  const [curve, data] = key.split(":");
+  return curve === "ed25519" && !!data;
+}
+
+/** True when both agent keys are present in the ed25519:... form the signer requires. */
+export function nearReady(): boolean {
+  return isNearKey(cfg.near.triageKey) && isNearKey(cfg.near.juryKey);
+}
+
 // Each agent signs with its own account; the contract rejects any other caller.
 const triage = () => new Account(cfg.near.triageId, cfg.near.rpcUrl, cfg.near.triageKey as KeyPairString);
 const jury = () => new Account(cfg.near.juryId, cfg.near.rpcUrl, cfg.near.juryKey as KeyPairString);

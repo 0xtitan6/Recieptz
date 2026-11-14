@@ -11,7 +11,7 @@ import { routeEvidence } from "./route.js";
 
 export { COVERED_DOMAINS };
 
-export async function gather(claimText: string, domain: string): Promise<Evidence[]> {
+export async function gather(domain: string, claimText: string): Promise<Evidence[]> {
   if (!(COVERED_DOMAINS as readonly string[]).includes(domain)) return [];
 
   const route = await routeEvidence(claimText, domain);

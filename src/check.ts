@@ -3,14 +3,14 @@ import { triage } from "./triage.js";
 import { COVERED_DOMAINS, gather } from "./evidence/index.js";
 import { runJury } from "./jury.js";
 import { buildReceipt, receiptBytes, saveReceipt, sha } from "./receipt.js";
-import { receiptCid, registerClaim, submitVerdict } from "./near.js";
+import { nearReady, receiptCid, registerClaim, submitVerdict } from "./near.js";
 import { cfg } from "./config.js";
 import type { Receipt } from "./types.js";
 
 export type CheckResult =
   | { declined: true; reason: string }
   | { declined: false; uncovered: true }
-  | { declined: false; uncovered: false; receipt: Receipt };
+  | { declined: false; uncovered: false; receipt: Receipt; cid: string | null };
 
 export async function runCheck(post: string, postId: string | null = null): Promise<CheckResult> {
   const t = await triage(post);
@@ -18,14 +18,16 @@ export async function runCheck(post: string, postId: string | null = null): Prom
 
   const claim = t.claims[0]; // hackathon scope: first claim only
   // README: out-of-coverage claims get no verdict and no run (all triage domains are covered now).
-  if (!COVERED_DOMAINS.includes(claim.domain)) return { declined: true as const, reason: "out-of-coverage" };
+  if (!(COVERED_DOMAINS as readonly string[]).includes(claim.domain)) return { declined: true, reason: "out-of-coverage" };
 
   // Commit before judging (README step 4). CLI checks have no post, so the claim hash stands in.
   const claimHash = sha(claim.text);
   const claimPostId = postId ?? `cli:${claimHash.slice(0, 16)}`;
   const runId = randomUUID();
   const juryConfig = cfg.jurors.map((j) => j.id).join(",");
-  await registerClaim({ runId, claimPostId, claimHash, juryConfig });
+  const onChain = nearReady();
+  if (onChain) await registerClaim({ runId, claimPostId, claimHash, juryConfig });
+  else console.error("NEAR_TRIAGE_KEY and NEAR_JURY_KEY are not set as ed25519:... keys. This check will not be registered on-chain.");
 
   const evidence = await gather(claim.domain, claim.text);
   const j = await runJury(claim.text, evidence);
@@ -40,13 +42,15 @@ export async function runCheck(post: string, postId: string | null = null): Prom
   // Receipt first, then verdict (ARCHITECTURE §7.3): the CID must exist before submit_verdict.
   const cid = await receiptCid(receiptBytes(receipt));
   saveReceipt(receipt);
-  try {
-    await submitVerdict(runId, receipt.verdict, cid);
-  } catch (e) {
-    // Don't register a new run to "fix" this: retry submit_verdict with the same run ID and CID.
-    throw new Error(`submit_verdict failed for run ${runId} (it will show as abandoned until retried): ${(e as Error).message}`);
+  if (onChain) {
+    try {
+      await submitVerdict(runId, receipt.verdict, cid);
+    } catch (e) {
+      // Don't register a new run to "fix" this: retry submit_verdict with the same run ID and CID.
+      throw new Error(`submit_verdict failed for run ${runId} (it will show as abandoned until retried): ${(e as Error).message}`);
+    }
   }
-  return { declined: false as const, receipt, cid };
+  return { declined: false, uncovered: false, receipt, cid: onChain ? cid : null };
 }
 
 // CLI: npm run check -- "claim text"
@@ -62,6 +66,8 @@ if (process.argv[1]?.endsWith("check.ts")) {
     console.log(`${x.verdict} (confidence ${x.confidence.toFixed(2)})`);
     console.log(`Sources: ${x.evidence.map((e) => e.name).join("; ")}`);
     console.log(`Receipt: ${x.code}  -> receipts/${x.code}.json`);
-    console.log(`On-chain: run ${x.runId} on ${x.contractId}, receipt CID ${r.cid}`);
+    console.log(r.cid
+      ? `On-chain: run ${x.runId} on ${x.contractId}, receipt CID ${r.cid}`
+      : `Local only: run ${x.runId} was not submitted. Receipt CID was not recorded on-chain.`);
   }).catch((e) => { console.error(e); process.exit(1); });
 }
