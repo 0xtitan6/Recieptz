@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { PROMPT_VERSION } from "./prompts.js";
 import type { Receipt } from "./types.js";
 
-const sha = (s: string) => createHash("sha256").update(s).digest("hex");
+export const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"; // Crockford base32
 
 function codeFrom(hash: string): string {
@@ -20,9 +20,14 @@ export function buildReceipt(r: Omit<Receipt, "code" | "claimHash" | "promptVers
   return { ...body, code: codeFrom(receiptHash), receiptHash };
 }
 
+/** The exact bytes that are saved, and later pinned. The on-chain CID is computed from these. */
+export function receiptBytes(r: Receipt): Uint8Array {
+  return new TextEncoder().encode(JSON.stringify(r, null, 2));
+}
+
 export function saveReceipt(r: Receipt): string {
   mkdirSync("receipts", { recursive: true });
   const path = `receipts/${r.code}.json`;
-  writeFileSync(path, JSON.stringify(r, null, 2));
+  writeFileSync(path, receiptBytes(r));
   return path;
 }

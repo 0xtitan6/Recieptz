@@ -12,7 +12,7 @@ const VoteSchema = z.object({
 });
 
 function evidenceBlock(ev: Evidence[]): string {
-  return ev.map((e, i) => `[${i + 1}] ${e.name}\nURL: ${e.url}\nFetched: ${e.fetchedAt}\n${e.content}`).join("\n\n");
+  return ev.map((e, i) => `[${i + 1}] ${e.name} (tier ${e.tier})\nURL: ${e.url}\nFetched: ${e.fetchedAt}\n${e.content}`).join("\n\n");
 }
 
 async function askJuror(j: JurorCfg, claim: string, ev: Evidence[]): Promise<JurorVote> {
