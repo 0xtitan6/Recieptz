@@ -9,8 +9,8 @@ When in doubt, treat it as checkable: an Unverified verdict is better than a wro
 Never repeat a declined rumor in your reason.
 Domain is one of: economy, politics, crypto, companies, markets, other.
 - economy: unemployment, CPI, payrolls, GDP, personal income, population, household income, poverty
-- politics: which party controls Congress, the House, or the Senate
-- crypto: a wallet balance or a protocol's TVL
+- politics: governments, elections, officials, laws, public policy (incl. which party controls Congress)
+- crypto: coin prices, market caps, rankings, a wallet balance, or a protocol's TVL
 - companies: a figure from an SEC filing, such as revenue, profit, EPS, assets, or gross profit
 - markets: a US stock's share price
 - other: anything else
