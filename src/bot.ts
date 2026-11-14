@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { TwitterApi, type TweetV2 } from "twitter-api-v2";
 import { runCheck } from "./check.js";
 import { COVERED_DOMAINS } from "./evidence/index.js";
+import { PUBLISHABLE } from "./types.js";
 
 const POLL_MS = Number(process.env.BOT_POLL_MS ?? 60_000);
 const LOOKUP_URL = (process.env.LOOKUP_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -37,8 +38,16 @@ async function handle(mention: TweetV2, parents: Map<string, TweetV2>): Promise<
   if (r.declined) return "I didn't find a checkable public claim in that post.";
 
   const rc = r.receipt;
-  const src = rc.evidence[0]?.name ?? "no primary record found";
-  return `${rc.verdict} (confidence ${rc.confidence.toFixed(2)}). Source: ${src}.\nReceipt, verified on NEAR: ${LOOKUP_URL}/run/${rc.runId}`;
+  const link = `\nReceipt, verified on NEAR: ${LOOKUP_URL}/run/${rc.runId}`;
+  // Only a publishable verdict cites a source; otherwise the evidence didn't settle the claim.
+  if (!PUBLISHABLE.includes(rc.verdict)) {
+    const why = rc.verdict === "Contested"
+      ? "The jury split and the evidence doesn't settle it."
+      : "No primary record I can check covers this claim.";
+    return `${rc.verdict}. ${why}${link}`;
+  }
+  const src = rc.evidence[0]?.name ?? "primary record";
+  return `${rc.verdict} (confidence ${rc.confidence.toFixed(2)}). Source: ${src}.${link}`;
 }
 
 async function poll(meId: string) {
