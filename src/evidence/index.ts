@@ -1,27 +1,39 @@
 import type { Evidence } from "../types.js";
+import { COVERED_DOMAINS } from "./catalog.js";
 import { fetchBls } from "./bls.js";
 import { fetchBea } from "./bea.js";
 import { fetchCensus } from "./census.js";
+import { fetchCongressMajority } from "./congress.js";
+import { fetchEthBalance, fetchNearBalance, fetchProtocolTvl } from "./crypto.js";
+import { fetchEdgar } from "./edgar.js";
+import { fetchQuote } from "./quote.js";
+import { routeEvidence } from "./route.js";
 
-const ECONOMY_SOURCES: { name: string; fetch: () => Promise<Evidence[]> }[] = [
-  { name: "BLS", fetch: fetchBls },
-  { name: "BEA", fetch: fetchBea },
-  { name: "Census", fetch: fetchCensus },
-];
+export { COVERED_DOMAINS };
 
-export async function gather(domain: string): Promise<Evidence[]> {
-  switch (domain) {
-    case "economy": {
-      const results = await Promise.allSettled(ECONOMY_SOURCES.map((s) => s.fetch()));
-      const evidence: Evidence[] = [];
-      for (const [i, r] of results.entries()) {
-        if (r.status === "fulfilled") evidence.push(...r.value);
-        else console.error(`${ECONOMY_SOURCES[i].name} fetch failed:`, r.reason?.message ?? r.reason);
-      }
-      return evidence;
-    }
-    // case "politics": return fetchCongress(...)   // add later
-    // case "crypto":   return fetchOnchain(...)
-    default: return [];
+export async function gather(claimText: string, domain: string): Promise<Evidence[]> {
+  if (!(COVERED_DOMAINS as readonly string[]).includes(domain)) return [];
+
+  const route = await routeEvidence(claimText, domain);
+  console.error(`Evidence route: ${JSON.stringify(route)}`);
+  switch (route.source) {
+    case "bls":
+      return fetchBls(route.seriesIds, route.startYear, route.endYear);
+    case "bea":
+      return fetchBea(route.tables);
+    case "census":
+      return fetchCensus(route.variables);
+    case "congress":
+      return fetchCongressMajority();
+    case "crypto":
+      if (route.kind === "eth_balance") return fetchEthBalance(route.address);
+      if (route.kind === "near_balance") return fetchNearBalance(route.account);
+      return fetchProtocolTvl(route.slug);
+    case "edgar":
+      return fetchEdgar(route.ticker, route.metric);
+    case "quote":
+      return fetchQuote(route.ticker);
+    default:
+      return [];
   }
 }

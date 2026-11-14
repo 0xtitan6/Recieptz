@@ -5,7 +5,7 @@ const cases = JSON.parse(readFileSync("eval/claims.json", "utf8")) as { text: st
 let pass = 0;
 for (const c of cases) {
   const r = await runCheck(c.text);
-  const got = r.declined ? "decline" : r.receipt.verdict;
+  const got = r.declined ? "decline" : r.uncovered ? "uncovered" : r.receipt.verdict;
   const ok = got === c.expect;
   if (ok) pass++;
   console.log(`${ok ? "PASS" : "FAIL"}  expected=${c.expect} got=${got}  | ${c.text}`);

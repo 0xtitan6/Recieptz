@@ -6,5 +6,5 @@ contract/target/
 .DS_Store
 .venv
 .vibe-wise/
-!.env.example
 .env.*
+!.env.example

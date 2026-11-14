@@ -1,17 +1,11 @@
 import { createHash } from "node:crypto";
 import { cfg } from "../config.js";
 import type { Evidence } from "../types.js";
-
-// One entry per (table, line). Verify codes with GetParameterValues (see notes).
-const TABLES = [
-  { table: "T10101", freq: "Q", line: "1", name: "Real GDP, % change from preceding period" },
-  { table: "T10105", freq: "Q", line: "1", name: "Gross domestic product, current dollars" },
-  { table: "T20600", freq: "M", line: "1", name: "Personal income" },
-];
+import { BEA_TABLES, type BeaTableName } from "./catalog.js";
 
 const BASE = "https://apps.bea.gov/api/data";
 
-async function fetchTable(t: (typeof TABLES)[number]): Promise<Evidence> {
+async function fetchTable(t: (typeof BEA_TABLES)[number]): Promise<Evidence> {
   const year = new Date().getFullYear();
 
   // Public, key-free version of the request: safe to store in the receipt.
@@ -61,6 +55,8 @@ async function fetchTable(t: (typeof TABLES)[number]): Promise<Evidence> {
   };
 }
 
-export async function fetchBea(): Promise<Evidence[]> {
-  return Promise.all(TABLES.map(fetchTable));
+export async function fetchBea(tables: BeaTableName[]): Promise<Evidence[]> {
+  const selected = BEA_TABLES.filter((t) => tables.includes(t.table));
+  if (selected.length === 0) return [];
+  return Promise.all(selected.map(fetchTable));
 }

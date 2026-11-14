@@ -11,4 +11,7 @@ export const cfg = {
   blsKey: process.env.BLS_API_KEY ?? "",
   beaKey: process.env.BEA_API_KEY ?? "",
   censusKey: process.env.CENSUS_API_KEY ?? "",
+  congressKey: process.env.CONGRESS_API_KEY ?? "",
+  secUserAgent: process.env.SEC_USER_AGENT ?? "",
+  ethRpc: process.env.ETH_RPC_URL ?? "https://ethereum.publicnode.com",
 };

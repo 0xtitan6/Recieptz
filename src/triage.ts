@@ -6,7 +6,7 @@ import { TRIAGE } from "./prompts.js";
 const Schema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("checkable"),
-    claims: z.array(z.object({ text: z.string(), domain: z.enum(["economy", "politics", "crypto", "other"]) })).min(1),
+    claims: z.array(z.object({ text: z.string(), domain: z.enum(["economy", "politics", "crypto", "companies", "markets", "other"]) })).min(1),
   }),
   z.object({ kind: z.literal("decline"), reason: z.string() }),
 ]);
