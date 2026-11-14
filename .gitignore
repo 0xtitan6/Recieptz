@@ -8,3 +8,4 @@ contract/target/
 .vibe-wise/
 .env.*
 !.env.example
+.env.*state/

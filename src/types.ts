@@ -22,6 +22,9 @@ export interface JurorVote {
 
 export interface Receipt {
   code: string;
+  runId: string;         // on-chain run this receipt belongs to
+  contractId: string;    // NEAR contract holding the run
+  juryConfig: string;    // jury committed in register_claim
   postId: string | null;
   claimText: string;
   claimHash: string;

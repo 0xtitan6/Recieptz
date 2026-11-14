@@ -14,4 +14,13 @@ export const cfg = {
   congressKey: process.env.CONGRESS_API_KEY ?? "",
   secUserAgent: process.env.SEC_USER_AGENT ?? "",
   ethRpc: process.env.ETH_RPC_URL ?? "https://ethereum.publicnode.com",
+  tavilyKey: process.env.TAVILY_API_KEY ?? "",
+  near: {
+    rpcUrl: process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org",
+    contractId: process.env.NEAR_CONTRACT_ID ?? "receiptz-0xtitan6.testnet",
+    triageId: process.env.NEAR_TRIAGE_ID ?? "triage.receiptz-0xtitan6.testnet",
+    triageKey: process.env.NEAR_TRIAGE_KEY ?? "", // ed25519:... private key, never commit
+    juryId: process.env.NEAR_JURY_ID ?? "jury.receiptz-0xtitan6.testnet",
+    juryKey: process.env.NEAR_JURY_KEY ?? "",     // ed25519:... private key, never commit
+  },
 };
