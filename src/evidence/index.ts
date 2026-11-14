@@ -9,6 +9,9 @@ const ECONOMY_SOURCES: { name: string; fetch: () => Promise<Evidence[]> }[] = [
   { name: "Census", fetch: fetchCensus },
 ];
 
+/** Domains with a built specialist. Anything else gets the out-of-coverage reply and no run. */
+export const COVERED_DOMAINS = ["economy"];
+
 export async function gather(domain: string): Promise<Evidence[]> {
   switch (domain) {
     case "economy": {
