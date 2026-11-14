@@ -11,7 +11,7 @@ export const cfg = {
   blsKey: process.env.BLS_API_KEY ?? "",
   beaKey: process.env.BEA_API_KEY ?? "",
   censusKey: process.env.CENSUS_API_KEY ?? "",
-  firecrawlKey: process.env.FIRECRAWL_API_KEY ?? "",
+  tavilyKey: process.env.TAVILY_API_KEY ?? "",
   near: {
     rpcUrl: process.env.NEAR_RPC_URL ?? "https://rpc.testnet.near.org",
     contractId: process.env.NEAR_CONTRACT_ID ?? "receiptz-0xtitan6.testnet",
