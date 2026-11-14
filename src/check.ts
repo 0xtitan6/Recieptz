@@ -7,9 +7,14 @@ import { receiptCid, registerClaim, submitVerdict } from "./near.js";
 import { cfg } from "./config.js";
 import type { Receipt } from "./types.js";
 
-export async function runCheck(post: string, postId: string | null = null) {
+export type CheckResult =
+  | { declined: true; reason: string }
+  | { declined: false; uncovered: true }
+  | { declined: false; uncovered: false; receipt: Receipt };
+
+export async function runCheck(post: string, postId: string | null = null): Promise<CheckResult> {
   const t = await triage(post);
-  if (t.kind === "decline") return { declined: true as const, reason: t.reason };
+  if (t.kind === "decline") return { declined: true, reason: t.reason };
 
   const claim = t.claims[0]; // hackathon scope: first claim only
   // README: out-of-coverage claims get no verdict and no run (all triage domains are covered now).
@@ -52,6 +57,7 @@ if (process.argv[1]?.endsWith("check.ts")) {
       return console.log(`I can't check this against primary records yet. Covered today: ${COVERED_DOMAINS.join(", ")}.`);
     }
     if (r.declined) return console.log(`Declined (${r.reason}). Not a checkable public claim.`);
+    if (r.uncovered) return console.log(`I can't check this against primary records yet. Covered today: ${COVERED_DOMAINS.join(", ")}.`);
     const x = r.receipt;
     console.log(`${x.verdict} (confidence ${x.confidence.toFixed(2)})`);
     console.log(`Sources: ${x.evidence.map((e) => e.name).join("; ")}`);

@@ -1,23 +1,19 @@
 import { createHash } from "node:crypto";
 import { cfg } from "../config.js";
 import type { Evidence } from "../types.js";
+import { BLS_SERIES } from "./catalog.js";
 
-const SERIES: Record<string, string> = {
-  LNS14000000: "Unemployment rate, seasonally adjusted (%)",
-  CUUR0000SA0: "CPI-U, all items, NSA (index)",
-  CES0000000001: "Total nonfarm payrolls (thousands)",
-};
-
-export async function fetchBls(): Promise<Evidence[]> {
-  const year = new Date().getFullYear();
+export async function fetchBls(seriesIds: string[], startYear: string, endYear: string): Promise<Evidence[]> {
+  const ids = seriesIds.filter((id) => id in BLS_SERIES);
+  if (ids.length === 0) return [];
   const url = "https://api.bls.gov/publicAPI/v2/timeseries/data/";
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      seriesid: Object.keys(SERIES),
-      startyear: String(year - 1),
-      endyear: String(year),
+      seriesid: ids,
+      startyear: startYear,
+      endyear: endYear,
       registrationkey: cfg.blsKey,
     }),
   });
@@ -32,10 +28,10 @@ export async function fetchBls(): Promise<Evidence[]> {
       .map((d) => `${d.year} ${d.periodName}: ${d.value}`).join("\n");
     return {
       tier: 1,
-      name: `BLS ${SERIES[s.seriesID] ?? s.seriesID}`,
+      name: `BLS ${BLS_SERIES[s.seriesID] ?? s.seriesID}`,
       url: `https://data.bls.gov/timeseries/${s.seriesID}`,
       fetchedAt,
-      content: `${SERIES[s.seriesID] ?? s.seriesID} (latest first)\n${rows}`,
+      content: `${BLS_SERIES[s.seriesID] ?? s.seriesID} (latest first)\n${rows}`,
       contentHash: hash,
     };
   });

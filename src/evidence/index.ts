@@ -1,42 +1,39 @@
 import type { Evidence } from "../types.js";
+import { COVERED_DOMAINS } from "./catalog.js";
 import { fetchBls } from "./bls.js";
 import { fetchBea } from "./bea.js";
 import { fetchCensus } from "./census.js";
-import { fetchCrypto } from "./coingecko.js";
-import { fetchWikipedia } from "./wikipedia.js";
-import { fetchGdelt } from "./gdelt.js";
-import { fetchTavily } from "./tavily.js";
+import { fetchCongressMajority } from "./congress.js";
+import { fetchEthBalance, fetchNearBalance, fetchProtocolTvl } from "./crypto.js";
+import { fetchEdgar } from "./edgar.js";
+import { fetchQuote } from "./quote.js";
+import { routeEvidence } from "./route.js";
 
-type Source = { name: string; fetch: (claim: string) => Promise<Evidence[]> };
+export { COVERED_DOMAINS };
 
-const BLS: Source = { name: "BLS", fetch: () => fetchBls() };
-const BEA: Source = { name: "BEA", fetch: () => fetchBea() };
-const CENSUS: Source = { name: "Census", fetch: () => fetchCensus() };
-const COINGECKO: Source = { name: "CoinGecko", fetch: () => fetchCrypto() };
-const WIKIPEDIA: Source = { name: "Wikipedia", fetch: (c) => fetchWikipedia(c) };
-// GDELT is wired but unused: its API rate-limits hard and returned empty results in testing (Nov 14).
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const GDELT: Source = { name: "GDELT", fetch: (c) => fetchGdelt(c) }; void GDELT;
-const TAVILY: Source = { name: "Tavily", fetch: (c) => fetchTavily(c) };
+export async function gather(claimText: string, domain: string): Promise<Evidence[]> {
+  if (!(COVERED_DOMAINS as readonly string[]).includes(domain)) return [];
 
-/** Which specialists run for each triage domain. Primary sources first. */
-const SOURCES: Record<string, Source[]> = {
-  economy: [BLS, BEA, CENSUS],
-  crypto: [COINGECKO, WIKIPEDIA, TAVILY],
-  politics: [WIKIPEDIA, TAVILY],
-  other: [WIKIPEDIA, TAVILY],
-};
-
-/** Domains with a built specialist. Anything else gets the out-of-coverage reply and no run. */
-export const COVERED_DOMAINS = Object.keys(SOURCES);
-
-export async function gather(domain: string, claim: string): Promise<Evidence[]> {
-  const sources = SOURCES[domain] ?? [];
-  const results = await Promise.allSettled(sources.map((s) => s.fetch(claim)));
-  const evidence: Evidence[] = [];
-  for (const [i, r] of results.entries()) {
-    if (r.status === "fulfilled") evidence.push(...r.value);
-    else console.error(`${sources[i].name} fetch failed:`, r.reason?.message ?? r.reason);
+  const route = await routeEvidence(claimText, domain);
+  console.error(`Evidence route: ${JSON.stringify(route)}`);
+  switch (route.source) {
+    case "bls":
+      return fetchBls(route.seriesIds, route.startYear, route.endYear);
+    case "bea":
+      return fetchBea(route.tables);
+    case "census":
+      return fetchCensus(route.variables);
+    case "congress":
+      return fetchCongressMajority();
+    case "crypto":
+      if (route.kind === "eth_balance") return fetchEthBalance(route.address);
+      if (route.kind === "near_balance") return fetchNearBalance(route.account);
+      return fetchProtocolTvl(route.slug);
+    case "edgar":
+      return fetchEdgar(route.ticker, route.metric);
+    case "quote":
+      return fetchQuote(route.ticker);
+    default:
+      return [];
   }
-  return evidence.sort((a, b) => a.tier - b.tier);
 }

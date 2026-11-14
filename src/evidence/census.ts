@@ -1,20 +1,31 @@
 import { createHash } from "node:crypto";
 import { cfg } from "../config.js";
 import type { Evidence } from "../types.js";
+import { CENSUS_VARIABLES, type CensusVariable } from "./catalog.js";
 
 // Variable IDs are from memory: verify against the year's variables.json (see notes).
 const VARS = {
-  pop: { est: "B01001_001E", moe: "B01001_001M", label: "Total population" },
-  income: { est: "B19013_001E", moe: "B19013_001M", label: "Median household income (inflation-adjusted dollars)" },
+  pop: { est: "B01001_001E", moe: "B01001_001M", label: CENSUS_VARIABLES.pop },
+  income: { est: "B19013_001E", moe: "B19013_001M", label: CENSUS_VARIABLES.income },
   povTotal: { est: "B17001_001E", moe: "B17001_001M", label: "Population for whom poverty status is determined" },
   povBelow: { est: "B17001_002E", moe: "B17001_002M", label: "Population below poverty level" },
 };
 
+type VarDef = { est: string; moe: string; label: string };
+
+function varsFor(keys: CensusVariable[]): VarDef[] {
+  const out: VarDef[] = [];
+  if (keys.includes("pop")) out.push(VARS.pop);
+  if (keys.includes("income")) out.push(VARS.income);
+  if (keys.includes("poverty")) out.push(VARS.povTotal, VARS.povBelow);
+  return out;
+}
+
 const BASE = "https://api.census.gov/data";
 const SENTINEL = (v: string) => Number(v) <= -111111111; // Census uses large negatives for N/A
 
-async function fetchYear(year: number) {
-  const get = ["NAME", ...Object.values(VARS).flatMap((v) => [v.est, v.moe])].join(",");
+async function fetchYear(year: number, vars: VarDef[]) {
+  const get = ["NAME", ...vars.flatMap((v) => [v.est, v.moe])].join(",");
 
   // Key-free URL: safe to store in the receipt.
   const publicUrl = `${BASE}/${year}/acs/acs1?get=${get}&for=us:*`;
@@ -35,11 +46,13 @@ async function fetchYear(year: number) {
   return { publicUrl, body, header: json[0], row: json[1] };
 }
 
-export async function fetchCensus(): Promise<Evidence[]> {
+export async function fetchCensus(keys: CensusVariable[]): Promise<Evidence[]> {
+  const vars = varsFor(keys);
+  if (vars.length === 0) return [];
   const thisYear = new Date().getFullYear();
   let hit: Awaited<ReturnType<typeof fetchYear>> = null;
   let year = thisYear - 1;
-  for (; year >= thisYear - 3 && !hit; year--) hit = await fetchYear(year);
+  for (; year >= thisYear - 3 && !hit; year--) hit = await fetchYear(year, vars);
   year += 1; // undo the final decrement
   if (!hit) throw new Error("Census: no ACS 1-year release found for recent years");
 
@@ -52,6 +65,7 @@ export async function fetchCensus(): Promise<Evidence[]> {
   const items: { name: string; content: string }[] = [];
 
   for (const key of ["pop", "income"] as const) {
+    if (!keys.includes(key)) continue;
     const v = VARS[key];
     items.push({
       name: `Census ACS ${year} ${v.label}`,
@@ -59,8 +73,8 @@ export async function fetchCensus(): Promise<Evidence[]> {
     });
   }
 
-  const below = num(VARS.povBelow.est);
-  const total = num(VARS.povTotal.est);
+  const below = keys.includes("poverty") ? num(VARS.povBelow.est) : null;
+  const total = keys.includes("poverty") ? num(VARS.povTotal.est) : null;
   if (below !== null && total) {
     items.push({
       name: `Census ACS ${year} Poverty rate (computed)`,
