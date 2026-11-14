@@ -11,7 +11,13 @@ const keyTerms = (claim: string) =>
 
 /** The ~EXCERPT-char window of the page that mentions the most claim terms (falls back to the start). */
 function bestExcerpt(page: string, claim: string): string {
-  const text = page.replace(/\n{3,}/g, "\n\n").trim();
+  const text = page
+    .replace(/\[\[[^\]]*\]\]\([^)]*\)/g, "")          // [[44]](url) citations
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")              // images
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")             // links -> link text
+    .replace(/^\s*[#>*\-|]+\s*$/gm, "")                   // empty markdown lines
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n").trim();
   if (text.length <= EXCERPT) return text;
   const terms = keyTerms(claim);
   let best = 0, bestScore = -1;
