@@ -12,7 +12,7 @@ export async function runCheck(post: string, postId: string | null = null) {
   if (t.kind === "decline") return { declined: true as const, reason: t.reason };
 
   const claim = t.claims[0]; // hackathon scope: first claim only
-  // README: out-of-coverage claims get no verdict and no run.
+  // README: out-of-coverage claims get no verdict and no run (all triage domains are covered now).
   if (!COVERED_DOMAINS.includes(claim.domain)) return { declined: true as const, reason: "out-of-coverage" };
 
   // Commit before judging (README step 4). CLI checks have no post, so the claim hash stands in.
@@ -22,7 +22,7 @@ export async function runCheck(post: string, postId: string | null = null) {
   const juryConfig = cfg.jurors.map((j) => j.id).join(",");
   await registerClaim({ runId, claimPostId, claimHash, juryConfig });
 
-  const evidence = await gather(claim.domain);
+  const evidence = await gather(claim.domain, claim.text);
   const j = await runJury(claim.text, evidence);
 
   const receipt: Receipt = buildReceipt({
