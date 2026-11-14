@@ -7,4 +7,4 @@ contract/target/
 .venv
 .vibe-wise/
 !.env.example
-.env.*
+.env.*state/
