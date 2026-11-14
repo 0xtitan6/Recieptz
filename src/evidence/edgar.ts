@@ -14,6 +14,14 @@ type Row = {
   unit: string;
 };
 
+const TAG_ALIASES: Record<string, string[]> = {
+  Revenues: ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet", "Revenue"],
+  NetIncomeLoss: ["NetIncomeLoss", "ProfitLoss", "ProfitLossAttributableToOwnersOfParent"],
+  EarningsPerShareDiluted: ["EarningsPerShareDiluted", "DilutedEarningsLossPerShare"],
+  Assets: ["Assets"],
+  GrossProfit: ["GrossProfit"],
+};
+
 let tickerFile: { cik: string; ticker: string; title: string }[] | null = null;
 
 function tickerForms(ticker: string): string[] {
@@ -75,7 +83,16 @@ export async function fetchEdgar(ticker: string, metric: EdgarMetric): Promise<E
 
   const url = `https://data.sec.gov/api/xbrl/companyfacts/CIK${hit.cik}.json`;
   const { body, json } = await secGet(url);
-  const facts = json.facts?.["us-gaap"]?.[metric] ?? json.facts?.["ifrs-full"]?.[metric];
+  // Companies switch XBRL tags over time (Apple: Revenues -> RevenueFromContractWithCustomer... after 2018).
+  // Try every alias and use the one with the most recent period.
+  let facts: any = null, newest = "";
+  for (const tag of TAG_ALIASES[metric] ?? [metric]) {
+    const f = json.facts?.["us-gaap"]?.[tag] ?? json.facts?.["ifrs-full"]?.[tag];
+    if (!f) continue;
+    const ends = Object.values(f.units ?? {}).flat().map((r: any) => String(r.end ?? ""));
+    const last = ends.sort().at(-1) ?? "";
+    if (last > newest) { newest = last; facts = f; }
+  }
   const units: Record<string, any[]> = facts?.units ?? {};
   const unit = units.USD ? "USD" : units["USD/shares"] ? "USD/shares" : Object.keys(units)[0];
   if (!unit) return [];

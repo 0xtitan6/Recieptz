@@ -31,6 +31,16 @@ function bestExcerpt(page: string, claim: string): string {
 }
 
 /** Tier 3 (secondary): top web search results for the claim with page text. Needs TAVILY_API_KEY; silently skipped without it. */
+/** Drop tracking params (msockid, utm_*, fbclid...) so jurors can cite the URL exactly as shown. */
+function cleanUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    for (const k of [...u.searchParams.keys()]) if (/^(msockid|utm_.*|fbclid|gclid|mc_.*|ref|ref_src)$/i.test(k)) u.searchParams.delete(k);
+    u.hash = "";
+    return u.toString();
+  } catch { return raw; }
+}
+
 export async function fetchTavily(claim: string, limit = 3): Promise<Evidence[]> {
   if (!cfg.tavilyKey) return [];
   const res = await fetch(API, {
@@ -50,7 +60,7 @@ export async function fetchTavily(claim: string, limit = 3): Promise<Evidence[]>
     return {
       tier: 3,
       name: `Web: ${title}`,
-      url: h.url,
+      url: cleanUrl(h.url),
       fetchedAt,
       content,
       contentHash: createHash("sha256").update(content).digest("hex"),
