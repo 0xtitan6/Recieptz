@@ -5,7 +5,19 @@ Receiptz is a fact-checking agent on X. A user replies to a post with `@checkrec
 Built for NEAR HACKATHON (Nov 1–14, 2026).
 Tracks: `swarms`, `security`, `open`.
 
-> **Status:** in development. Sections marked *(planned)* describe behavior that is not built yet.
+> **Status:** live on NEAR testnet. The bot answers tags on X, every check is registered and judged on-chain, and every receipt can be verified on the lookup site. Sections marked *(planned)* describe behavior that is not built yet; [Built today](#built-today) lists exactly what runs now.
+
+## Live demo
+
+| | |
+|---|---|
+| Bot | [@checkreceiptz](https://x.com/checkreceiptz): reply to a post with `@checkreceiptz is this true?` |
+| Lookup site | http://52.17.217.82:3000: search a receipt code or run ID |
+| Contract | [`receiptz-0xtitan6.testnet`](https://testnet.nearblocks.io/address/receiptz-0xtitan6.testnet) |
+| Agent accounts | `triage.receiptz-0xtitan6.testnet`, `jury.receiptz-0xtitan6.testnet` |
+| First live reply | https://x.com/0xtitan6/status/2121696770199519317 |
+
+On a receipt page, Receiptz re-hashes the saved receipt and compares it with the CID stored on-chain. A match shows **VERIFIED ON NEAR**; any edit to the receipt shows **TAMPERED**.
 
 ---
 
@@ -70,6 +82,40 @@ Each domain is one specialist agent that knows where that domain's primary recor
 **Outside coverage.** If a claim falls in a domain whose specialist is not built yet, or in no domain, the agent replies: "I can't check this against primary records yet. Covered today: <domains>." It does not guess, and no verdict or run is recorded.
 
 Public health statistics cover population-level data only. Claims about an individual's health stay declined (see [Scope](#scope)).
+
+---
+
+## Built today
+
+What runs at the end of the hackathon (Nov 14, 2026). Everything else in this README is the design.
+
+| Step | Built | Notes |
+|---|---|---|
+| Tag on X | Yes | `src/bot.ts` polls mentions every 60 s, checks the parent post, records each mention ID before checking so a crash can't cause a second run, replies with verdict + lookup link |
+| Triage | Yes | One claim per post; domains: economy, politics, crypto, companies, markets, other |
+| Dedupe of repeat claims | No | Day 2 |
+| Commit (`register_claim`) | Yes | Signed by the triage account before any evidence is read |
+| Evidence | Yes | An LLM router picks one query from an allowlisted catalog of primary records; reference and web sources run alongside (see below) |
+| `attach_sources` | No | Day 2. Source hashes are in the receipt, not yet on-chain before the votes |
+| Jury | Yes | GLM 5.3 Flash (Zhipu), Qwen 3.8 27B (Alibaba), DeepSeek v4.1 Flash (DeepSeek); red team; deterministic auditor that rejects any citation not in the evidence set |
+| `submit_verdict` | Yes | Signed by the jury account; late verdicts (after the 15-minute timeout) are stored as `Late` |
+| Abandoned runs | Yes | Computed by the contract at read time; shown on the lookup site |
+| Receipt storage | Partly | Receipt JSON is saved by Receiptz and served by the lookup site; its CIDv1 (sha-256) is on-chain. IPFS pinning is day 2 |
+| Lookup site | Yes | `src/server.ts`: live on-chain status, CID check, jurors, evidence |
+| Juror attestation checks | No | Raw API responses are stored in the receipt; signature verification is planned |
+
+**Evidence sources in use**
+
+| Domain | Primary record (tier 1) | Also used |
+|---|---|---|
+| Economy | BLS, BEA, Census | Web search (Tavily) only if no primary record fits |
+| Politics | Congress.gov (party control) | Wikipedia, web search |
+| Crypto | NEAR and Ethereum RPC (balances), DefiLlama (TVL) | CoinGecko live prices (tier 2), Wikipedia, web search |
+| Companies | SEC EDGAR company facts | Web search only if no primary record fits |
+| Markets | Stock quotes | Web search only if no primary record fits |
+| Other | none | Wikipedia, web search |
+
+In the code, tier 2 is market-data aggregators and tier 3 is reference and web pages (Wikipedia, Tavily). Jurors see each source's tier and are told to lower confidence when only tier 3 supports a verdict. Because every domain has at least reference sources, the "can't check this yet" reply no longer fires; weak evidence produces Unverified instead.
 
 ---
 
@@ -198,44 +244,68 @@ The archive.org snapshot is taken separately from Receiptz's fetch, so its conte
 
 ---
 
-## Try it *(planned)*
+## Try it
 
 ### Prerequisites
 
-- Node.js 20+, Rust with `cargo-near`, NEAR CLI, a NEAR testnet account
+- Node.js 20+
 - NEAR AI Cloud API key
-- X API credentials (pay-per-use)
-- API keys for the domains you enable: BLS, BEA, FRED, Census, Congress.gov, GovInfo, OpenFEC, CourtListener, a block explorer (e.g. Etherscan). SEC EDGAR, NEAR RPC, DefiLlama, CDC, openFDA, PubMed, Crossref, NOAA and USGS need no key
+- For the bot: X API credentials (pay-per-use) for the bot account
+- To deploy your own contract: Rust 1.95+ with the `wasm32-unknown-unknown` target, `cargo-near`, `near` CLI, a NEAR testnet account
 
-### Setup
+### Environment (`.env`, never committed)
+
+| Variable | Needed for |
+|---|---|
+| `LLM_BASE_URL`, `LLM_API_KEY`, `TRIAGE_MODEL`, `RED_TEAM_MODEL`, `JURORS` | Triage, jury, red team (NEAR AI Cloud) |
+| `NEAR_RPC_URL`, `NEAR_CONTRACT_ID`, `NEAR_TRIAGE_ID`, `NEAR_TRIAGE_KEY`, `NEAR_JURY_ID`, `NEAR_JURY_KEY` | On-chain runs. Without the two keys, checks run locally and nothing is registered |
+| `BLS_API_KEY`, `BEA_API_KEY`, `CENSUS_API_KEY`, `CONGRESS_API_KEY`, `SEC_USER_AGENT` | Primary records |
+| `TAVILY_API_KEY` | Web search |
+| `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET`, `LOOKUP_URL` | The bot. Get the bot account's token with `npx tsx scripts/x-auth.ts` |
+
+### Run
 
 ```bash
-git clone https://github.com/0xtitan6/receiptz
-cd receiptz
-cp .env.example .env      # add API keys; never commit this file
+git clone https://github.com/0xtitan6/Recieptz
+cd Recieptz
 npm install
-npm run contract:deploy   # deploys receiptz contract and agent sub-accounts to testnet
-npm run agents:dev        # runs triage, evidence and jury agents locally
-npm run explorer:dev      # receipt lookup at http://localhost:3000
+npm run check -- "The U.S. unemployment rate is above 10%."   # one check, end to end
+npm run serve                                                 # lookup site at http://localhost:3000
+npm run bot                                                   # X bot (polls mentions)
+```
+
+### Contract
+
+```bash
+cd contract
+cargo +1.95 test                                              # 8 unit tests
+cargo +1.95 near build non-reproducible-wasm
+near contract deploy <your-account>.testnet use-file target/near/receiptz_contract.wasm \
+  with-init-call new json-args '{"triage":"triage.<your-account>.testnet","jury":"jury.<your-account>.testnet","timeout_ms":900000}' \
+  prepaid-gas '100 Tgas' attached-deposit '0 NEAR' network-config testnet sign-with-keychain send
+near contract call-function as-read-only <your-account>.testnet get_run json-args '{"run_id":"<run id>"}' network-config testnet now
 ```
 
 ### Do X, see Y
 
+Rows marked *(planned)* describe the full design and do not work yet.
+
 | Do | See |
 |---|---|
 | `npm run check -- "The unemployment rate was 10% last month"` | A False verdict citing the latest BLS release, and a receipt code |
-| Open `http://localhost:3000/r/<code>` | The committed claim, run history, sources with hashes and archive references, each juror's vote, model ID, lab and verification path |
-| `npm run check -- "<senator> voted for <bill>"` | A True or False verdict naming the roll-call vote and bill |
-| `npm run check -- "<wallet> sold 2M <token> before the announcement"` | A verdict citing the on-chain transactions and block timestamps |
-| `npm run check -- "<company> reported a loss last quarter"` | A verdict citing the 10-Q filing on SEC EDGAR |
-| `npm run check -- "<claim in a domain not yet built>"` | "I can't check this against primary records yet," with the list of covered domains; no run is recorded |
-| `npm run check -- "Is this policy good?"` | A "not a factual claim" reply with both sides' strongest case and no verdict |
+| Open `http://localhost:3000/run/<code or run id>` | The claim, live on-chain status, a VERIFIED stamp if the receipt matches the on-chain CID, sources with tiers, each juror's vote and reasoning |
+| `npm run check -- "Republicans control the US Senate."` | A verdict citing Congress.gov party counts |
+| `npm run check -- "<senator> voted for <bill>"` *(planned)* | A True or False verdict naming the roll-call vote and bill |
+| `npm run check -- "<wallet> sold 2M <token> before the announcement"` *(planned)* | A verdict citing the on-chain transactions and block timestamps |
+| `npm run check -- "Apple's revenue was over 300 billion dollars last fiscal year."` | A verdict citing SEC EDGAR company facts |
+| `npm run check -- "The Eiffel Tower is in Berlin."` | False, from reference and web sources, at lower confidence than a primary-record verdict |
+| `npm run check -- "Is this policy good?"` | A decline ("not a checkable public claim"). Both sides' strongest case is *(planned)* |
 | `npm run check -- "Did <celebrity> get surgery?"` | A decline that does not repeat the claim |
-| Run the same check twice | The second call returns the stored verdict and receipt code; no new run ID |
-| `npm run abandon-demo -- <post_id>` (registers a run and never submits a verdict) | After the timeout, the run shows as abandoned and the receipt reads "2 runs registered, 1 without a verdict" |
-| `near view receiptz.testnet get_runs_by_post '{"post_id":"<id>"}'` | Every run for that post, including reworded claims, with each run's status |
-| Call `submit_verdict` from `triage.receiptz.testnet` | The contract rejects it: the key is not allowed to call that method |
-| Tag `@checkreceiptz is this true?` on a live post | A reply with label, confidence, source names and receipt code |
+| Run the same check twice *(planned)* | The second call returns the stored verdict and receipt code; no new run ID |
+| Register a run and never submit a verdict | After the 15-minute timeout, `get_run` and the lookup site show it as Abandoned. The run count on the receipt is *(planned)* |
+| `near contract call-function as-read-only receiptz-0xtitan6.testnet get_runs_by_post json-args '{"claim_post_id":"<id>"}' network-config testnet now` | Every run for that post, including reworded claims, with each run's status |
+| Call `submit_verdict` from `triage.receiptz-0xtitan6.testnet` | The contract rejects it: "only jury can submit verdicts". Scoped function-call keys are day 2 |
+| Tag `@checkreceiptz is this true?` on a live post | Within 1–3 minutes, a reply with label, confidence, source name and a lookup link |
 
 ---
 
@@ -248,7 +318,7 @@ npm run explorer:dev      # receipt lookup at http://localhost:3000
 | X reply (no URL) | $0.015 |
 | Repeat tag of an already-checked claim | No inference; reply cost only |
 
-Replies carry a receipt code instead of a link, because X charges $0.20 for posts containing a URL versus $0.015 without ([summary of X's pay-per-use pricing](https://www.upload-post.com/x-api-pricing/); official rates at docs.x.com). The lookup site is linked from the account bio.
+Replies are meant to carry a receipt code instead of a link, because X charges $0.20 for posts containing a URL versus $0.015 without ([summary of X's pay-per-use pricing](https://www.upload-post.com/x-api-pricing/); official rates at docs.x.com). The lookup site is linked from the account bio. **During the hackathon the bot's replies include a lookup link**, so each reply costs the URL rate; switching to codes is day 2.
 
 Model prices: [NEAR AI catalog](https://near.ai/models), Oct 22, 2026.
 
@@ -266,6 +336,18 @@ Model prices: [NEAR AI catalog](https://near.ai/models), Oct 22, 2026.
 - **Contract upgrades.** During the hackathon, the owner account can upgrade the contract, which could change how history is stored or read. Receipt content IDs and source hashes already published remain checkable against copies held elsewhere. After the hackathon, upgrades will be either locked or placed behind a public time delay announced on-chain *(planned)*.
 
 ---
+
+## Day 2 (next)
+
+- Pin receipts and fetched government records to IPFS (the CID on-chain already matches the receipt bytes)
+- `attach_sources`: commit source hashes on-chain before the jury votes
+- Scoped function-call keys for the triage and jury accounts (today they hold full-access keys)
+- Dedupe repeat claims and show "N runs registered, M without a verdict" on each receipt
+- Verify NEAR AI signatures and attestation for each juror and show the result on the receipt
+- Fourth-lab escalation juror and the Contested threshold tuned on the 50-claim test set
+- Stable host: Elastic IP, a domain and HTTPS for the lookup site
+- Replies with a receipt code instead of a URL, to cut X's per-reply cost (see [Costs](#costs))
+- GDELT news specialist (written, not enabled: the API rate-limited and returned empty results in testing)
 
 ## Planned after the hackathon
 
