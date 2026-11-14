@@ -14,15 +14,17 @@ const BEA: Source = { name: "BEA", fetch: () => fetchBea() };
 const CENSUS: Source = { name: "Census", fetch: () => fetchCensus() };
 const COINGECKO: Source = { name: "CoinGecko", fetch: () => fetchCrypto() };
 const WIKIPEDIA: Source = { name: "Wikipedia", fetch: (c) => fetchWikipedia(c) };
-const GDELT: Source = { name: "GDELT", fetch: (c) => fetchGdelt(c) };
+// GDELT is wired but unused: its API rate-limits hard and returned empty results in testing (Nov 14).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const GDELT: Source = { name: "GDELT", fetch: (c) => fetchGdelt(c) }; void GDELT;
 const TAVILY: Source = { name: "Tavily", fetch: (c) => fetchTavily(c) };
 
 /** Which specialists run for each triage domain. Primary sources first. */
 const SOURCES: Record<string, Source[]> = {
   economy: [BLS, BEA, CENSUS],
-  crypto: [COINGECKO, WIKIPEDIA, GDELT],
-  politics: [WIKIPEDIA, TAVILY, GDELT],
-  other: [WIKIPEDIA, TAVILY, GDELT],
+  crypto: [COINGECKO, WIKIPEDIA, TAVILY],
+  politics: [WIKIPEDIA, TAVILY],
+  other: [WIKIPEDIA, TAVILY],
 };
 
 /** Domains with a built specialist. Anything else gets the out-of-coverage reply and no run. */
